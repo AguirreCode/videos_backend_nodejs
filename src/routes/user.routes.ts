@@ -10,7 +10,7 @@ router.post("/signup", userCtrl.signupUser);
 
 router.get("/user", validateToken, userCtrl.getUser);
 
-router.post("/reseat-password", userCtrl.reseatPasword);
+router.post("/recover-password", userCtrl.recoverPassword);
 
 router.post("/change-password", validateToken, userCtrl.changePasword);
 

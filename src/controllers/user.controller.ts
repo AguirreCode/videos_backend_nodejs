@@ -25,7 +25,6 @@ const schemaChangePassword = Joi.object({
   confirm_password: Joi.string().min(8).max(255).required(),
 });
 
-
 const schemaUpdateUser = Joi.object({
   name: Joi.string().min(4).max(255).required(),
   first_lastname: Joi.string().min(4).max(255).required(),
@@ -63,8 +62,14 @@ export const signupUser = async (req: Request, res: Response) => {
       password,
     });
     newUser.password = encrypt(password);
+    await transporter.sendMail({
+      from: '"Bienvenido(a) al sistema" <house.company.col@gmail.com>',
+      to: email,
+      subject: "Te has registrado",
+      html: `Podras iniciar sesion con tu correo`,
+    });
     await newUser.save();
-    return res.status(200).json(newUser);
+    return res.status(200).json({ user: newUser} );
   } catch (error) {
     return res.status(400).json(error);
   }
@@ -109,23 +114,24 @@ export const getUser = async (req: Request, res: Response) => {
     const user = await User.findById(req.user);
     if (!user) return res.status(400).json({ error: "Usuario no encontrado" });
     user.password = "";
-    return res.status(200).json(user);
+    return res.status(200).json({ user: user });
   } catch (error) {
     return res.status(400).json(error);
   }
 };
 
-export const reseatPasword = async (req: Request, res: Response) => {
+export const recoverPassword = async (req: Request, res: Response) => {
   try {
+    console.log(req.body);
     const { email } = req.body;
-    const user = await User.findOne(email);
+    const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ error: "Usuario no encontrado" });
     const pass = generatePassword();
     const passEncrypt = encrypt(pass);
     await transporter.sendMail({
       from: '"Restablecer Contraseña" <house.company.col@gmail.com>',
       to: user.email,
-      subject: "Tu contraseña ha sido actualizada",
+      subject: "Tu contraseña ha sido restablecida",
       html: `Tu nueva contraseña es: ${pass}`,
     });
     const userUpdate = await User.findOneAndUpdate(email, {
@@ -149,9 +155,14 @@ export const changePasword = async (req: Request, res: Response) => {
     if (password !== confirm_password)
       return res.status(400).json({ error: "Las contraseñas no coinciden" });
     const passEncrypt = encrypt(password);
-    const userUpdate = await User.findByIdAndUpdate(req.user, {
-      password: passEncrypt,
-    });
+    const userUpdate = await User.findByIdAndUpdate(
+      req.user,
+      {
+        password: passEncrypt,
+      },
+      { new: true }
+    );
+    userUpdate.password = "";
     return res.status(200).json({ user: userUpdate });
   } catch (error) {
     return res.status(400).json(error);
@@ -161,18 +172,26 @@ export const changePasword = async (req: Request, res: Response) => {
 export const editUser = async (req: Request, res: Response) => {
   try {
     //Validate user
-    const { error } = schemaUpdateUser.validate(req.body);
-
-    if (error) return res.status(400).json({ error: error.details[0].message });
     const { email, name, first_lastname, second_lastname } = req.body;
-    const user = await User.findById(req.user);
-    if (!user) return res.status(400).json({ error: "Usuario no encontrado" });
-    const userUpdate = await User.findByIdAndUpdate(req.user, {
+    const { error } = schemaUpdateUser.validate({
       email,
       name,
       first_lastname,
       second_lastname,
     });
+    if (error) return res.status(400).json({ error: error.details[0].message });
+    const user = await User.findById(req.user);
+    if (!user) return res.status(400).json({ error: "Usuario no encontrado" });
+    const userUpdate = await User.findByIdAndUpdate(
+      req.user,
+      {
+        email,
+        name,
+        first_lastname,
+        second_lastname,
+      },
+      { new: true }
+    );
     return res.status(200).json({ user: userUpdate });
   } catch (error) {
     return res.status(400).json(error);

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import Post from "../models/Post";
 import Joi from "@hapi/joi";
+import User from "../models/User";
 
 const schemaCreatePost = Joi.object({
   title: Joi.string().min(5).max(255).required(),
@@ -34,8 +35,10 @@ export const createPost = async (req: Request, res: Response) => {
 
 export const getPosts = async (req: Request, res: Response) => {
   try {
-    const posts = await Post.find();
-    return res.json(posts);
+    const user = await User.findById(req.user);
+    if (!user) return res.status(400).json({ error: "Usuario no encontrado" });
+    const posts = await Post.find().sort({ createdAt: -1 });
+    return res.status(200).json({ all: posts });
   } catch (error) {
     return res.status(400).json(error);
   }
@@ -46,7 +49,7 @@ export const getPost = async (req: Request, res: Response) => {
   try {
     const findPost = await Post.findById(id);
     if (!findPost) return res.status(404).json("La publicación no existe");
-    return res.status(200).json(findPost);
+    return res.status(200).json({ post: findPost });
   } catch (error) {
     return res.status(404).json(error);
   }
@@ -68,7 +71,7 @@ export const updatePost = async (req: Request, res: Response) => {
     );
     if (!updatePost)
       return res.status(400).json("Error al actualizar la publicación");
-    return res.status(200).json(updatePost);
+    return res.status(200).json({ post: updatePost });
   } catch (error) {
     return res.status(400).json(error);
   }
